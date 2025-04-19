@@ -1,0 +1,162 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Entrerium - Robô Cripto</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(180deg, #0a0a0a, #1a1a1a);
+      color: #0ff;
+      padding: 20px;
+      margin: 0;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2em;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px #0ff;
+    }
+    h2 {
+      margin-top: 30px;
+      color: #0f8;
+    }
+    select, button {
+      padding: 10px;
+      font-size: 1em;
+      margin: 10px 10px 10px 0;
+      background: #111;
+      border: 1px solid #0ff;
+      color: #0ff;
+      border-radius: 5px;
+    }
+    iframe {
+      width: 100%;
+      height: 500px;
+      border: none;
+      margin-top: 10px;
+    }
+    #alertas li {
+      margin: 6px 0;
+      list-style: none;
+    }
+    .painel {
+      background: #121212;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #0ff3;
+    }
+    @media (max-width: 768px) {
+      iframe {
+        height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>ENTRERIUM - Robô Cripto</h1>
+
+  <!-- CONTROLES -->
+  <div class="painel">
+    <label for="cripto">Escolha a moeda:</label>
+    <select id="cripto">
+      <option value="BTC/USDT">Bitcoin (BTC)</option>
+      <option value="ETH/USDT">Ethereum (ETH)</option>
+      <option value="DOGE/USDT">Dogecoin (DOGE)</option>
+    </select>
+    <button onclick="atualizarTudo()">Atualizar Dados</button>
+    <button onclick="window.print()">Exportar PDF dos alertas</button>
+  </div>
+
+  <!-- GRÁFICO -->
+  <div class="painel">
+    <h2>Gráfico Interativo</h2>
+    <iframe id="graficoTV" src=""></iframe>
+  </div>
+
+  <!-- SENTIMENTO DE MERCADO -->
+  <div class="painel">
+    <h2>Sentimento de Mercado (Fear & Greed)</h2>
+    <iframe src="https://alternative.me/crypto/fear-and-greed-index/" height="250"></iframe>
+  </div>
+
+  <!-- ALERTAS -->
+  <div class="painel">
+    <h2>Alertas de Compra/Venda</h2>
+    <ul id="alertas"></ul>
+  </div>
+
+  <script>
+    const simbolosTV = {
+      "BTC/USDT": "BINANCE:BTCUSDT",
+      "ETH/USDT": "BINANCE:ETHUSDT",
+      "DOGE/USDT": "BINANCE:DOGEUSDT"
+    };
+
+    const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbHVlIjoiNjgwMzFhZDQ4MDZmZjE2NTFlY2I0NGFlIiwiaWF0IjoxNzQ1MDMzOTQwLCJleHAiOjMzMjQ5NDk3OTQwfQ.Wxg2bkAIugtLBqWbpJuswlTbLajynJ7KRrLc2SDd4cc";
+
+    function atualizarGrafico(par) {
+      const simbolo = simbolosTV[par];
+      document.getElementById("graficoTV").src =
+        `https://s.tradingview.com/widgetembed/?symbol=${simbolo}&interval=15&theme=dark&style=1&timezone=Etc/UTC`;
+    }
+
+    async function gerarAlerta(par) {
+      try {
+        const [base, quote] = par.split("/");
+        const rsiURL = `https://api.taapi.io/rsi?secret=${apiKey}&exchange=binance&symbol=${par}&interval=15m`;
+        const macdURL = `https://api.taapi.io/macd?secret=${apiKey}&exchange=binance&symbol=${par}&interval=15m`;
+
+        const [rsiResp, macdResp] = await Promise.all([
+          fetch(rsiURL), fetch(macdURL)
+        ]);
+
+        const rsiData = await rsiResp.json();
+        const macdData = await macdResp.json();
+
+        const rsi = rsiData.value;
+        const macd = macdData.valueMACD;
+        const signal = macdData.valueMACDSignal;
+
+        let alerta = `${par}: RSI=${rsi.toFixed(1)} | MACD=${macd.toFixed(2)} | Sinal=${signal.toFixed(2)} → `;
+
+        let tipo = "NEUTRO";
+        let cor = "#ccc";
+
+        if (rsi < 30 && macd > signal) {
+          tipo = "COMPRA";
+          cor = "#0f0";
+        } else if (rsi > 70 && macd < signal) {
+          tipo = "VENDA";
+          cor = "#f00";
+        }
+
+        alerta += tipo;
+
+        const li = document.createElement("li");
+        li.textContent = alerta;
+        li.style.color = cor;
+        document.getElementById("alertas").prepend(li);
+
+        if (document.getElementById("alertas").childElementCount > 10) {
+          document.getElementById("alertas").removeChild(document.getElementById("alertas").lastChild);
+        }
+      } catch (e) {
+        console.error("Erro ao gerar alerta:", e);
+      }
+    }
+
+    function atualizarTudo() {
+      const par = document.getElementById("cripto").value;
+      atualizarGrafico(par);
+      gerarAlerta(par);
+    }
+
+    atualizarTudo();
+    setInterval(atualizarTudo, 30000); // Atualiza a cada 30 segundos
+  </script>
+</body>
+</html>
